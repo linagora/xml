@@ -43,6 +43,40 @@ class Reader extends \XMLReader
     }
 
     /**
+     * Moves the cursor to the next sibling, skipping the current subtree.
+     *
+     * XMLReader::next() fails silently on some malformed documents (for
+     * instance a mismatched end tag right after an empty element) and leaves
+     * the cursor where it was. Every deserializer loop that relies on next()
+     * to make progress would then parse the same element forever, so a failed
+     * move is turned into an exception instead.
+     *
+     * @param string|null $name
+     *
+     * @throws LibXMLException when libxml reported an error
+     * @throws ParseException  when the cursor could not move for another reason
+     */
+    #[\ReturnTypeWillChange]
+    public function next($name = null): bool
+    {
+        if (null === $name ? parent::next() : parent::next($name)) {
+            return true;
+        }
+
+        $errors = libxml_get_errors();
+        if ($errors) {
+            libxml_clear_errors();
+            throw new LibXMLException($errors);
+        }
+        if (self::NONE !== $this->nodeType) {
+            throw new ParseException('The XML reader could not move past the current node');
+        }
+
+        // Plain end of the document.
+        return false;
+    }
+
+    /**
      * Reads the entire document.
      *
      * This function returns an array with the following three elements:

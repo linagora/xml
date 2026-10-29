@@ -47,4 +47,37 @@ class InfiniteLoopTest extends \PHPUnit\Framework\TestCase
             'attributes' => [],
         ], $output);
     }
+
+    /**
+     * A mismatched end tag right after an empty element made XMLReader::next()
+     * fail without moving the cursor, so keyValue() parsed the same element
+     * until max_execution_time. The exact bytes matter: libxml only stalls at
+     * this position, so the fixture must be kept as is.
+     */
+    public function testKeyValueDoesNotLoopWhenTheCursorCannotMove()
+    {
+        $reader = new Reader();
+        $reader->elementMap = [
+            '{DAV:}prop' => 'Sabre\\Xml\\Deserializer\\keyValue',
+        ];
+        $reader->xml(file_get_contents(__DIR__.'/fixtures/keyvalue-stuck-cursor.xml'));
+
+        $start = microtime(true);
+        try {
+            $reader->parse();
+            $this->fail('A malformed document must not parse');
+        } catch (ParseException $e) {
+            $this->assertInstanceOf(LibXMLException::class, $e);
+        }
+        $this->assertLessThan(2.0, microtime(true) - $start);
+    }
+
+    public function testNextStillReturnsFalseAtTheEndOfTheDocument()
+    {
+        $reader = new Reader();
+        $reader->xml('<?xml version="1.0"?><root/>');
+        $reader->read();
+
+        $this->assertFalse($reader->next());
+    }
 }
