@@ -48,6 +48,11 @@
         "phpstan/phpstan": "^0.12",
         "phpunit/phpunit" : "^7.5 || ^8.5 || ^9.6"
     },
+    "extra" : {
+        "branch-alias" : {
+            "dev-linagora-waiting-merges-2.2" : "2.2.x-dev"
+        }
+    },
     "scripts": {
         "phpstan": [
             "phpstan analyse lib tests"
