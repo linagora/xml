@@ -43,6 +43,33 @@ class Reader extends \XMLReader
     }
 
     /**
+     * Moves the cursor to the next node.
+     *
+     * Once libxml hits a fatal error (a mismatched end tag, for instance),
+     * XMLReader::read() keeps returning false and leaves the cursor where it
+     * was. The mixedContent() and functionCaller() deserializers ignore that
+     * return value and loop until they see an END_ELEMENT, so they would spin
+     * on a comment or a foreign element, or recurse on the mapped element
+     * until the process crashes. A failed move is turned into an exception
+     * instead, as next() does.
+     *
+     * @throws LibXMLException when libxml reported an error
+     * @throws ParseException  when the cursor could not move for another reason
+     */
+    #[\ReturnTypeWillChange]
+    public function read(): bool
+    {
+        if (parent::read()) {
+            return true;
+        }
+
+        $this->throwIfStuck();
+
+        // Plain end of the document.
+        return false;
+    }
+
+    /**
      * Moves the cursor to the next sibling, skipping the current subtree.
      *
      * XMLReader::next() fails silently on some malformed documents (for
@@ -63,6 +90,21 @@ class Reader extends \XMLReader
             return true;
         }
 
+        $this->throwIfStuck();
+
+        // Plain end of the document.
+        return false;
+    }
+
+    /**
+     * Called after read() or next() returned false: throws unless the cursor
+     * reached the plain end of the document.
+     *
+     * @throws LibXMLException when libxml reported an error
+     * @throws ParseException  when the cursor could not move for another reason
+     */
+    private function throwIfStuck(): void
+    {
         $errors = libxml_get_errors();
         if ($errors) {
             libxml_clear_errors();
@@ -71,9 +113,6 @@ class Reader extends \XMLReader
         if (self::NONE !== $this->nodeType) {
             throw new ParseException('The XML reader could not move past the current node');
         }
-
-        // Plain end of the document.
-        return false;
     }
 
     /**
